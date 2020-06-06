@@ -1,0 +1,10 @@
+/dist
+/build
+/.spyproject
+/.pylint.d
+/__pycache__
+/venv_flowTranslater
+config.json
+*.code-workspace
+*.spec
+tmp*
