@@ -1,5 +1,4 @@
 from stateSaver import StateSaver
-import cv2
 import numpy as np
 
 class StateComparer:
@@ -10,6 +9,8 @@ class StateComparer:
         # _, lastBW = cv2.threshold(stateSaver.lastState,120,255,cv2.THRESH_BINARY)
         # _, curBW = cv2.threshold(stateSaver.currentState,120,255,cv2.THRESH_BINARY)
         # print(lastBW.size, curBW.size)
-        same = np.allclose(stateSaver.lastState, stateSaver.currentState, 0, 80, equal_nan=True)
-        print(same)
+        if np.size(stateSaver.lastState) != np.size(stateSaver.currentState):
+            return True
+
+        same = np.allclose(stateSaver.lastState, stateSaver.currentState, 0, 180, equal_nan=True)
         return not same
