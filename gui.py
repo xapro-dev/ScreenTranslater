@@ -1,17 +1,45 @@
 from __future__ import annotations
 import re
+from tkinter.ttk import Style
+
 import container as cnt
 from threading import Thread
 from PIL import ImageGrab, ImageTk
 import time as t
-from tkinter import Tk, Frame, StringVar, Text, Toplevel, Canvas, Label, Button
+from tkinter import Tk, Frame, StringVar, Text, Toplevel, Canvas, Label, Button, Widget, EventType
 from tkinter.constants import BOTH, E, LEFT, Y, NORMAL, END, INSERT, DISABLED,\
     WORD, NW
+from ttkthemes import ThemedTk
+
+from speaker import Speaker
 
 
-class Window(Tk):
 
-    def init(self, container: cnt.Container, zoneUpdater, pauseEvent, refreshing):
+class Window(ThemedTk):
+    voice_api = refreshing = pauseEvent = zoneUpdater = _frame = refreshingTextVar = _voice_btn = _selectBtn = \
+        _closeBtn = _listbox = _pause_btn = _autohide_btn = None
+    visible = True
+    visible_till = None
+    ahide = False
+    top = None
+
+    def toggle(self, event):
+        if event.type == EventType.Map:
+            self.deiconify()
+        else:
+            self.withdraw()
+
+    def init(self, container: cnt.Container, zoneUpdater, pauseEvent, refreshing, voice_api: Speaker):
+        # create the "invisible" toplevel
+        self.top = Toplevel(self)
+        self.top.geometry('0x0+10000+10000')  # make it not visible
+        self.top.protocol('WM_DELETE_WINDOW', self.destroy)  # close root window if toplevel is closed
+        self.top.bind("<Map>", self.toggle)
+        self.top.bind("<Unmap>", self.toggle)
+
+        self.voice_api = voice_api
+        self.visible = True
+        self.reset_visibility()
         self.refreshing = refreshing
         self.pauseEvent = pauseEvent
         self.zoneUpdater = zoneUpdater
@@ -19,57 +47,96 @@ class Window(Tk):
         coords = self.config['gui']['window']['pos']
         self.attributes("-topmost", 1)
         self.attributes("-alpha", "0.7")
+        # self.wm_attributes('-type', 'dock')
         self.overrideredirect(1)
         self.geometry(f'500x300+{coords[0]}+{coords[1]}')
         Drag(self)
 
+        style = Style()
+        # ('winnative', 'clam', 'alt', 'default', 'classic', 'vista', 'xpnative')
+        style.theme_use('clam')
+
         self._frame = Frame(self, bg='#222')
         self._frame.pack(fill=BOTH, expand=1)
 
-        buttonFrame = Frame(self._frame, bg='#222')
-        buttonFrame.pack(anchor=E)
+        button_frame = Frame(self._frame, bg='#222')
+        button_frame.pack(anchor=E)
 
         self.refreshingTextVar = StringVar()
-        Label(buttonFrame, textvariable=self.refreshingTextVar, bg='#222', fg='#fff', bd=0).pack(side=LEFT, fill=Y)
+        Label(button_frame, textvariable=self.refreshingTextVar, bg='#222', fg='#fff', bd=0).pack(side=LEFT, fill=Y)
         Thread(target=self.watchRefreshingState, daemon=True).start()
 
-        self._selectBtn = Button(buttonFrame, text='pause', command=self.pause, bg='#222', fg='#fff')
+        self._autohide_btn = Button(button_frame, text='ahide', command=self.toggle_autohide, bg='#222', fg='#fff')
+        self._autohide_btn.pack(side=LEFT)
+
+        self._voice_btn = Button(button_frame, text='mute', command=self.toggle_voice, bg='#222', fg='#fff')
+        self._voice_btn.pack(side=LEFT)
+
+        self._pause_btn = Button(button_frame, text='run', command=self.pause, bg='#222', fg='#fff')
+        self._pause_btn.pack(side=LEFT)
+
+        self._selectBtn = Button(button_frame, text='select', command=self.runSelect, bg='#222', fg='#fff')
         self._selectBtn.pack(side=LEFT)
 
-        self._selectBtn = Button(buttonFrame, text='select', command=self.runSelect, bg='#222', fg='#fff')
-        self._selectBtn.pack(side=LEFT)
-
-        self._closeBtn = Button(buttonFrame, text='close', command=self.destroy, bg='#222', fg='#fff')
+        self._closeBtn = Button(button_frame, text='close', command=self.destroy, bg='#222', fg='#fff')
         self._closeBtn.pack(side=LEFT)
 
         self._listbox = Text(self._frame, width=100, height=100, wrap=WORD, spacing1=5, font="Helvetica 12", bg="black", fg="white")
         self._listbox.tag_configure("bold", font="Helvetica 12 bold")
         self._listbox.pack()
 
+    def toggle_autohide(self):
+        self.ahide = not self.ahide
+        if self.ahide:
+            self._autohide_btn.config(bg='#fff', fg='#222')
+        else:
+            self._autohide_btn.config(bg='#222', fg='#fff')
+
+    def reset_visibility(self):
+        self.visible_till = t.time() + 2
+
     def watchRefreshingState(self):
         while True:
             if self.pauseEvent.isSet():
                 text = 'paused...'
             elif self.refreshing.isSet():
+                self.reset_visibility()
                 text = 'translating...'
             else:
                 text = ''
             self.refreshingTextVar.set(text)
-            t.sleep(0.1)
+            
+            if self.visible_till < t.time() and self.visible and text != 'paused...' and self.ahide:
+                self.visible = False
+                self.top.iconify()
+            
+            if self.visible_till >= t.time() and not self.visible:
+                self.visible = True
+                self.top.deiconify()
 
+            t.sleep(0.2)
+
+    def toggle_voice(self):
+        if self.voice_api.enabled:
+            self._voice_btn.config(text='speak')
+        else:
+            self._voice_btn.config(text='mute')
+
+        self.voice_api.toggle()
 
     def pause(self):
         if not self.pauseEvent.isSet():
+            self._pause_btn.config(text='resume')
             self.pauseEvent.set()
         else:
+            self._pause_btn.config(text='pause')
             self.pauseEvent.clear()
-        
 
     def refresh(self, data: list):
         self._listbox.configure(state=NORMAL)
         self._listbox.delete("1.0", END)
         for row in data:
-            match = re.search('([^:]+:)(.+)', row)
+            match = re.search('\d+:\d+[]\s}]*([^:]+:)(.+)', row)
             speaker = ''
             sentence = row
             if match:

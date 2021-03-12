@@ -8,3 +8,5 @@ config.json
 *.code-workspace
 *.spec
 tmp*
+/.idea/
+/venv/

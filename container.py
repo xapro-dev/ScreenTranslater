@@ -9,7 +9,8 @@ Config: dict = {
     },
     'observer': {
         'zone': [20,777,550,1028]
-    }
+    },
+    'sid': ''
 }
 
 
@@ -32,7 +33,6 @@ class Container:
         self.configFile = file
         try:
             self.config = json.load(file)
-            print(self.config)
         except json.JSONDecodeError:
             self.config = Config
 
