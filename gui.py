@@ -93,7 +93,7 @@ class Window(ThemedTk):
             self._autohide_btn.config(bg='#222', fg='#fff')
 
     def reset_visibility(self):
-        self.visible_till = t.time() + 2
+        self.visible_till = t.time() + 20
 
     def watchRefreshingState(self):
         while True:
