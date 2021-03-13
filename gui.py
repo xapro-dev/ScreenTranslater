@@ -49,7 +49,9 @@ class Window(ThemedTk):
         self.attributes("-alpha", "0.7")
         # self.wm_attributes('-type', 'dock')
         self.overrideredirect(1)
-        self.geometry(f'500x300+{coords[0]}+{coords[1]}')
+        width = int(self.winfo_screenwidth() / 3.84)
+        height = int(self.winfo_screenheight() / 3.6)
+        self.geometry(f'{width}x{height}+{coords[0]}+{coords[1]}')
         Drag(self)
 
         style = Style()
@@ -163,7 +165,9 @@ class Rectangler(Toplevel):
         self.zoneUpdater = zoneUpdater
         self.attributes("-topmost", 1)
         self.overrideredirect(1)
-        self.geometry(f'1920x1080')
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+        self.geometry(str(screen_width) + 'x' + str(screen_height))
 
         self.canvas = Canvas(self, bg='#111')
         screenshot = ImageGrab.grab()
